@@ -1,0 +1,9 @@
+[package]
+name = "workshop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+stm32f0xx-hal = {version = "0.18.0", features = ["stm32f030", "rt", "stm32f030x4"]}

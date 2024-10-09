@@ -1,0 +1,11 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "probe-rs run --chip STM32F030F4Px --protocol swd"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+]
+
+[env]
+DEFMT_LOG="info"
+
+[build]
+target = "thumbv6m-none-eabi"  

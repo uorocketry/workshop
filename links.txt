@@ -1,0 +1,4 @@
+https://doc.rust-lang.org/nightly/rustc/platform-support/thumbv6m-none-eabi.html#thumbv6m-none-eabi
+https://probe.rs/targets/?manufacturer=STMicroelectronics&family=STM32F0+Series
+https://docs.rs/stm32f0xx-hal/latest/stm32f0xx_hal/
+https://www.st.com/en/microcontrollers-microprocessors/stm32f030f4.html
