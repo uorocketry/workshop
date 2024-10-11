@@ -7,3 +7,7 @@ edition = "2021"
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 stm32f0xx-hal = {version = "0.18.0", features = ["stm32f030", "rt", "stm32f030x4"]}
+postcard = "1.0.10"
+serde = {version = "1.0.150", default-features = false, features = ["derive"]}
+nb = "1.1.0"
+heapless = "0.7.17"

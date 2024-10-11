@@ -1,15 +1,30 @@
 #![no_std]
 #![no_main]
 
+mod eeprom;
+mod temperature;
+mod crypt;
+mod coms_manager;
+mod messages;
+
+use core::cell::RefCell;
+use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 
 use stm32f0xx_hal as hal;
+use crate::hal::spi::{Mode, Phase, Polarity, Spi};
+use hal::{pac, pac::interrupt, prelude::*, pwm};
 
-use hal::{pac, prelude::*, pwm};
+static COMS_MANAGER: Mutex<RefCell<Option<coms_manager::ComsManager>>> = Mutex::new(RefCell::new(None));
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
+}
+
+#[interrupt]
+fn USART1 () {
+    // Handle the interrupt
 }
 
 #[entry]
@@ -19,11 +34,19 @@ fn main() -> ! {
 
         let gpioa = dp.GPIOA.split(&mut rcc);
 
-        // let mut led: stm32f0xx_hal::gpio::gpioa::PA1<stm32f0xx_hal::gpio::Output<stm32f0xx_hal::gpio::PushPull>> = cortex_m::interrupt::free(|cs| gpioa.pa1.into_push_pull_output(cs));
+        // let mut led = cortex_m::interrupt::free(|cs| gpioa.pa1.into_push_pull_output(cs));
 
-        let channel = cortex_m::interrupt::free(move |cs| {
-            gpioa.pa4.into_alternate_af4(cs)
+        let eeprom_manager = cortex_m::interrupt::free(|cs| {
+            eeprom::EepromManager::new(
+                gpioa.pa6.into_alternate_af0(cs),
+                gpioa.pa7.into_alternate_af0(cs),
+                gpioa.pa5.into_alternate_af0(cs),
+                &mut rcc,
+                dp.SPI1,
+            )
         });
+
+        let channel = cortex_m::interrupt::free(move |cs| gpioa.pa4.into_alternate_af4(cs));
 
         let pwm = pwm::tim14(dp.TIM14, channel, &mut rcc, 20u32.khz());
         let mut ch1 = pwm;
@@ -35,3 +58,4 @@ fn main() -> ! {
         cortex_m::asm::nop();
     }
 }
+
