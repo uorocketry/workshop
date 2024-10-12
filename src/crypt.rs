@@ -1,33 +1,53 @@
 //! RSA no std implementation
 //! INSECURE: This is a toy implementation and should not be used in production code.
 
-pub struct PublicKey {
+use heapless::Vec;
+
+#[derive(Clone)]
+pub struct RSAPublicKey {
     n: u64,
     e: u64,
 }
 
-pub struct PrivateKey {
+#[derive(Clone)]
+pub struct RSAPrivateKey {
     n: u64,
     d: u64,
 }
 
-impl PublicKey {
-    pub fn new(n: u64, e: u64) -> PublicKey {
-        PublicKey { n, e }
+impl RSAPublicKey {
+    pub fn new(n: u64, e: u64) -> RSAPublicKey {
+        RSAPublicKey { n, e }
+    }
+    pub fn to_bytes(&self) -> [u8; 16] {
+        let mut bytes = [0u8; 16];
+        for i in 0..8 {
+            bytes[i] = (self.n >> (i * 8)) as u8;
+            bytes[i + 8] = (self.e >> (i * 8)) as u8;
+        }
+        bytes
     }
 }
 
-impl PrivateKey {
-    pub fn new(n: u64, d: u64) -> PrivateKey {
-        PrivateKey { n, d }
+impl RSAPrivateKey {
+    pub fn new(n: u64, d: u64) -> RSAPrivateKey {
+        RSAPrivateKey { n, d }
+    }
+    pub fn to_bytes(&self) -> [u8; 16] {
+        let mut bytes = [0u8; 16];
+        for i in 0..8 {
+            bytes[i] = (self.n >> (i * 8)) as u8;
+            bytes[i + 8] = (self.d >> (i * 8)) as u8;
+        }
+        bytes
     }
 }
 
-pub fn encrypt(pub_key: &PublicKey, m: u64) -> u64 {
+pub fn encrypt(pub_key: &RSAPublicKey, m: u64) -> u64 {
     mod_exp(m, pub_key.e, pub_key.n)
 }
 
-pub fn decrypt(priv_key: &PrivateKey, c: u64) -> u64 {
+pub fn decrypt(priv_key: &RSAPrivateKey, c: u64) -> u64 {
     mod_exp(c, priv_key.d, priv_key.n)
 }
 
@@ -45,4 +65,82 @@ fn mod_exp(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
         base = (base * base) % modulus;
     }
     result
+}
+
+// AES Encryption and Decryption
+const AES_BLOCK_SIZE: usize = 16;
+
+fn aes_encrypt_block(key: &[u8; 16], block: &mut [u8; 16]) {
+    // Implement AES-128 encryption for a single block
+    // This is a simplified example and not a full AES implementation
+    for i in 0..AES_BLOCK_SIZE {
+        block[i] ^= key[i];
+    }
+}
+
+fn aes_decrypt_block(key: &[u8; 16], block: &mut [u8; 16]) {
+    // Implement AES-128 decryption for a single block
+    // This is a simplified example and not a full AES implementation
+    for i in 0..AES_BLOCK_SIZE {
+        block[i] ^= key[i];
+    }
+}
+
+pub fn aes_encrypt(key: &[u8; 16], data: &[u8]) -> Vec<u8, 256> {
+    let mut encrypted_data: Vec<u8, 256> = Vec::new();
+    let mut iv = [0u8; AES_BLOCK_SIZE]; // Deterministic IV for simplicity
+
+    for chunk in data.chunks(AES_BLOCK_SIZE) {
+        let mut block = [0u8; AES_BLOCK_SIZE];
+        block[..chunk.len()].copy_from_slice(chunk);
+        for i in 0..AES_BLOCK_SIZE {
+            block[i] ^= iv[i];
+        }
+        aes_encrypt_block(key, &mut block);
+        iv = block;
+        encrypted_data.extend_from_slice(&block).unwrap();
+    }
+
+    encrypted_data
+}
+
+pub fn aes_decrypt(key: &[u8; 16], encrypted_data: &[u8]) -> Vec<u8, 256> {
+    let mut decrypted_data: Vec<u8, 256> = Vec::new();
+    let mut iv = [0u8; AES_BLOCK_SIZE]; // Deterministic IV for simplicity
+
+    for chunk in encrypted_data.chunks(AES_BLOCK_SIZE) {
+        let mut block = [0u8; AES_BLOCK_SIZE];
+        block.copy_from_slice(chunk);
+        let mut decrypted_block = block;
+        aes_decrypt_block(key, &mut decrypted_block);
+        for i in 0..AES_BLOCK_SIZE {
+            decrypted_block[i] ^= iv[i];
+        }
+        iv = block;
+        decrypted_data.extend_from_slice(&decrypted_block).unwrap();
+    }
+
+    decrypted_data
+}
+// FNV-1a Hash Function
+fn fnv1a_hash(data: &[u8]) -> [u8; 16] {
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+
+    let mut hash = FNV_OFFSET_BASIS;
+    for byte in data {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+
+    let mut key = [0u8; 16];
+    for i in 0..16 {
+        key[i] = (hash >> (i * 8)) as u8;
+    }
+    key
+}
+
+// Generate AES Key
+pub fn generate_aes_key(seed: &[u8]) -> [u8; 16] {
+    fnv1a_hash(seed)
 }
