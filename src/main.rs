@@ -5,18 +5,15 @@ mod coms_manager;
 mod crypt;
 mod eeprom;
 mod messages;
-mod temperature;
-
-use coms_manager::COMS_BUFFER;
+mod mux; 
 
 use core::cell::RefCell;
 use core::ops::DerefMut;
 use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 
-use crate::hal::spi::{Mode, Phase, Polarity, Spi};
 use hal::{pac, pac::interrupt, prelude::*, pwm, serial::Serial};
-use stm32f0xx_hal as hal;
+use stm32f0xx_hal::{self as hal, adc::Adc};
 
 static COMS: Mutex<RefCell<Option<coms_manager::ComsManager>>> = Mutex::new(RefCell::new(None));
 
@@ -28,7 +25,6 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 #[interrupt]
 fn USART1() {
     cortex_m::interrupt::free(|cs| {
-        // SAFETY: Borrowing rules could be violated here.
         if let Some(ref mut coms_manager) = COMS.borrow(cs).borrow_mut().deref_mut() {
             coms_manager.read_byte();
         }
@@ -41,8 +37,6 @@ fn main() -> ! {
         let mut rcc = dp.RCC.configure().sysclk(8.mhz()).freeze(&mut dp.FLASH);
 
         let gpioa = dp.GPIOA.split(&mut rcc);
-
-        // let mut led = cortex_m::interrupt::free(|cs| gpioa.pa1.into_push_pull_output(cs));
 
         let mut eeprom_manager = cortex_m::interrupt::free(|cs| {
             eeprom::EepromManager::new(
@@ -99,6 +93,17 @@ fn main() -> ! {
             COMS.borrow(cs).replace(Some(coms_manager));
         });
 
+        let adc = Adc::new(dp.ADC, &mut rcc); 
+
+        let mux = cortex_m::interrupt::free(move |cs| {
+            mux::Mux::new(
+                gpioa.pa1.into_push_pull_output(cs),
+                gpioa.pa0.into_push_pull_output(cs),
+                gpioa.pa2.into_push_pull_output(cs),
+                adc
+            )
+        });
+
         let channel = cortex_m::interrupt::free(move |cs| gpioa.pa4.into_alternate_af4(cs));
 
         let pwm = pwm::tim14(dp.TIM14, channel, &mut rcc, 20u32.khz());
@@ -106,6 +111,7 @@ fn main() -> ! {
         let max_duty = ch1.get_max_duty();
         ch1.set_duty(max_duty / 2);
         ch1.enable();
+
     }
     loop {
         cortex_m::asm::nop();

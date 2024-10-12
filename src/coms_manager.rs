@@ -82,7 +82,7 @@ impl ComsManager {
             coms_buffer.clear();
             coms_buffer.extend_from_slice(&remaining_data).unwrap();
         });
-    
+        
         msg
     }
 }
