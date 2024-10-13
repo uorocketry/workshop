@@ -3,7 +3,7 @@
 
 use heapless::Vec;
 
-#[derive(Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct RSAPublicKey {
     n: u64,
     e: u64,
@@ -27,6 +27,11 @@ impl RSAPublicKey {
         }
         bytes
     }
+    pub fn from_bytes(bytes: &[u8; 16]) -> RSAPublicKey {
+        let n = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let e = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        RSAPublicKey { n, e }
+    }
 }
 
 impl RSAPrivateKey {
@@ -41,14 +46,23 @@ impl RSAPrivateKey {
         }
         bytes
     }
+    pub fn from_bytes(bytes: &[u8; 16]) -> RSAPrivateKey {
+        let n = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let d = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        RSAPrivateKey { n, d }
+    }
 }
 
-pub fn encrypt(pub_key: &RSAPublicKey, m: u64) -> u64 {
-    mod_exp(m, pub_key.e, pub_key.n)
+pub fn encrypt(pub_key: &RSAPublicKey, m: &[u8]) -> [u8; 8] {
+    let m_int = bytes_to_u64(m);
+    let encrypted_int = mod_exp(m_int, pub_key.e, pub_key.n);
+    u64_to_bytes(encrypted_int)
 }
 
-pub fn decrypt(priv_key: &RSAPrivateKey, c: u64) -> u64 {
-    mod_exp(c, priv_key.d, priv_key.n)
+pub fn decrypt(priv_key: &RSAPrivateKey, c: &[u8]) -> [u8; 8] {
+    let c_int = bytes_to_u64(c);
+    let decrypted_int = mod_exp(c_int, priv_key.d, priv_key.n);
+    u64_to_bytes(decrypted_int)
 }
 
 fn mod_exp(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
@@ -67,10 +81,28 @@ fn mod_exp(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
     result
 }
 
-// AES Encryption and Decryption
-const AES_BLOCK_SIZE: usize = 16;
+fn bytes_to_u64(bytes: &[u8]) -> u64 {
+    assert!(bytes.len() <= 8, "Array length exceeds 8 bytes");
+    let mut result = 0u64;
+    for &byte in bytes {
+        result = (result << 8) | byte as u64;
+    }
+    result
+}
 
-fn aes_encrypt_block(key: &[u8; 16], block: &mut [u8; 16]) {
+fn u64_to_bytes(mut value: u64) -> [u8; 8] {
+    let mut bytes = [0u8; 8];
+    for i in (0..8).rev() {
+        bytes[i] = (value & 0xFF) as u8;
+        value >>= 8;
+    }
+    bytes
+}
+
+// AES Encryption and Decryption
+const AES_BLOCK_SIZE: usize = 8;
+
+fn aes_encrypt_block(key: &[u8; 8], block: &mut [u8; 8]) {
     // Implement AES-128 encryption for a single block
     // This is a simplified example and not a full AES implementation
     for i in 0..AES_BLOCK_SIZE {
@@ -78,7 +110,7 @@ fn aes_encrypt_block(key: &[u8; 16], block: &mut [u8; 16]) {
     }
 }
 
-fn aes_decrypt_block(key: &[u8; 16], block: &mut [u8; 16]) {
+fn aes_decrypt_block(key: &[u8; 8], block: &mut [u8; 8]) {
     // Implement AES-128 decryption for a single block
     // This is a simplified example and not a full AES implementation
     for i in 0..AES_BLOCK_SIZE {
@@ -86,7 +118,7 @@ fn aes_decrypt_block(key: &[u8; 16], block: &mut [u8; 16]) {
     }
 }
 
-pub fn aes_encrypt(key: &[u8; 16], data: &[u8]) -> Vec<u8, 256> {
+pub fn aes_encrypt(key: &[u8; 8], data: &[u8]) -> Vec<u8, 256> {
     let mut encrypted_data: Vec<u8, 256> = Vec::new();
     let mut iv = [0u8; AES_BLOCK_SIZE]; // Deterministic IV for simplicity
 
@@ -104,7 +136,7 @@ pub fn aes_encrypt(key: &[u8; 16], data: &[u8]) -> Vec<u8, 256> {
     encrypted_data
 }
 
-pub fn aes_decrypt(key: &[u8; 16], encrypted_data: &[u8]) -> Vec<u8, 256> {
+pub fn aes_decrypt(key: &[u8; 8], encrypted_data: &[u8]) -> Vec<u8, 256> {
     let mut decrypted_data: Vec<u8, 256> = Vec::new();
     let mut iv = [0u8; AES_BLOCK_SIZE]; // Deterministic IV for simplicity
 
@@ -122,8 +154,9 @@ pub fn aes_decrypt(key: &[u8; 16], encrypted_data: &[u8]) -> Vec<u8, 256> {
 
     decrypted_data
 }
+
 // FNV-1a Hash Function
-fn fnv1a_hash(data: &[u8]) -> [u8; 16] {
+fn fnv1a_hash(data: &[u8]) -> [u8; 8] {
     const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x100000001b3;
 
@@ -133,14 +166,14 @@ fn fnv1a_hash(data: &[u8]) -> [u8; 16] {
         hash = hash.wrapping_mul(FNV_PRIME);
     }
 
-    let mut key = [0u8; 16];
-    for i in 0..16 {
+    let mut key = [0u8; 8];
+    for i in 0..8 {
         key[i] = (hash >> (i * 8)) as u8;
     }
     key
 }
 
 // Generate AES Key
-pub fn generate_aes_key(seed: &[u8]) -> [u8; 16] {
+pub fn generate_aes_key(seed: &[u8]) -> [u8; 8] {
     fnv1a_hash(seed)
 }

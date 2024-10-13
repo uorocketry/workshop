@@ -1,32 +1,35 @@
 //! Message definitions
 
+use crate::crypt::RSAPublicKey;
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Message {
     pub id: u8,
-    pub data: [u8; 32],
+    pub data: Data,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Data {
-    Temperature(f32),
     RSAPublicKey(RSAPublicKey),
-    Status,
+    Status(Status),
+    Command(Command),
+    AESKey([u8; 8]),
+    Temperature([u8; 32]),
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct RSAPublicKey {
-    n: u64,
-    e: u64,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct AESKey {
-    key: [u8; 16],
+pub struct Temperature {
+    pub temp: f32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Status {
-    Encrypted,
-    Ok,
-    Error,
+    UnkownPublicKey,
+    // We cannot find the AES key in the EEPROM
+    UnkownAESKey,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub enum Command {
+    DeleteAESKey,
 }

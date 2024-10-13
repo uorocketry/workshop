@@ -4,8 +4,5 @@ rustflags = [
   "-C", "link-arg=-Tlink.x",
 ]
 
-[env]
-DEFMT_LOG="info"
-
 [build]
 target = "thumbv6m-none-eabi"  

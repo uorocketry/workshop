@@ -1,10 +1,10 @@
-//! Multiplexer 
+//! Multiplexer
 
 use cortex_m::interrupt::free;
 use stm32f0xx_hal::adc::Adc;
-use stm32f0xx_hal::prelude::*;
-use stm32f0xx_hal::gpio::{Pin, PushPull, Output};
 use stm32f0xx_hal::gpio::gpioa::{PA0, PA1, PA2};
+use stm32f0xx_hal::gpio::{Output, PushPull};
+use stm32f0xx_hal::prelude::*;
 
 #[derive(Clone, Copy)]
 pub enum Channel {
@@ -20,10 +20,7 @@ struct Selector {
 
 impl Selector {
     pub fn new(s0: PA1<Output<PushPull>>, s1: PA0<Output<PushPull>>) -> Selector {
-        Selector {
-            s0,
-            s1,
-        }
+        Selector { s0, s1 }
     }
 
     pub fn select(&mut self, channel: Channel) {
@@ -47,16 +44,21 @@ impl Selector {
 
 pub struct Mux {
     selector: Selector,
-    io: Option<PA2<Output<PushPull>>>, // we will need to take and transform the pin, so we use an option. 
-    adc: Adc, 
+    io: Option<PA2<Output<PushPull>>>, // we will need to take and transform the pin, so we use an option.
+    adc: Adc,
 }
 
 impl Mux {
-    pub fn new(s0: PA1<Output<PushPull>> , s1: PA0<Output<PushPull>>, io: PA2<Output<PushPull>>, adc: Adc) -> Mux {
+    pub fn new(
+        s0: PA1<Output<PushPull>>,
+        s1: PA0<Output<PushPull>>,
+        io: PA2<Output<PushPull>>,
+        adc: Adc,
+    ) -> Mux {
         Mux {
             selector: Selector::new(s0, s1),
             io: Some(io),
-            adc
+            adc,
         }
     }
 
@@ -64,8 +66,7 @@ impl Mux {
         self.selector.select(channel);
     }
 
-    pub fn take(&mut self) -> Option<PA2<Output<PushPull>>>
-    {
+    pub fn take(&mut self) -> Option<PA2<Output<PushPull>>> {
         self.io.take()
     }
 
@@ -87,15 +88,15 @@ impl Mux {
             Channel::TempSensor => {
                 // take the pin and convert to an analog pin
                 if let Some(mut io) = self.take() {
-                    let ret_val_ref = &mut ret_val; 
+                    let ret_val_ref = &mut ret_val;
                     free(move |cs| {
                         let mut adc_pin = io.into_analog(cs);
                         if let Ok(val) = self.adc.read(&mut adc_pin) as Result<u16, _> {
                             *ret_val_ref = Some(val);
-                        } 
+                        }
                         io = adc_pin.into_push_pull_output(cs);
                         self.give(io);
-                    })   
+                    })
                 }
             }
         }

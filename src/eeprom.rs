@@ -5,6 +5,12 @@ use stm32f0xx_hal::pac;
 use stm32f0xx_hal::prelude::*;
 use stm32f0xx_hal::spi::{Mode, Phase, Polarity, Spi};
 
+pub const AES_KEY_ADDRESS: u8 = 0x00;
+pub const RSA_PUB_KEY_ADDRESS: u8 = 0x08; // AES key is 8 bytes, so the next address starts at 0x08
+pub const RSA_PRIV_KEY_ADDRESS: u8 = 0x18; // RSA public key is 16 bytes, so the next address starts at 0x18
+pub const FORIEGN_AES_KEY_ADDRESS: u8 = 0x28; // RSA private key is 16 bytes, so the next address starts at 0x28
+pub const FORIEGN_RSA_PUB_KEY_ADDRESS: u8 = 0x30;
+
 pub struct EepromManager {
     spi: Spi<
         pac::SPI1,
@@ -117,6 +123,34 @@ impl EepromManager {
             if !status.rdy_bsy {
                 break;
             }
+        }
+    }
+
+    pub fn read_8_byte_key(&mut self, address: u8) -> [u8; 8] {
+        let mut key = [0; 8];
+        for i in 0..8 {
+            key[i] = self.read_memory(address + i as u8);
+        }
+        key
+    }
+
+    pub fn write_8_byte_key(&mut self, key: [u8; 8], address: u8) {
+        for i in 0..8 {
+            self.write_memory(address + i, key[i as usize]);
+        }
+    }
+
+    pub fn read_16_byte_key(&mut self, address: u8) -> [u8; 16] {
+        let mut key = [0; 16];
+        for i in 0..16 {
+            key[i] = self.read_memory(address + i as u8);
+        }
+        key
+    }
+
+    pub fn write_16_byte_key(&mut self, key: [u8; 16], address: u8) {
+        for i in 0..16 {
+            self.write_memory(address + i, key[i as usize]);
         }
     }
 }
